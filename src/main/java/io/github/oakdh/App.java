@@ -1,22 +1,18 @@
 package io.github.oakdh;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.util.Arrays;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import com.fazecast.jSerialComm.SerialPort;
 
-/**
- * Hello world!
- *
- */
 public class App 
 {
+    static int PACKET_SIZE = 4 * 4; // bytes
     public static void main( String[] args )
     {   
         try
         {
-            SerialPort sp = SerialPort.getCommPort("/dev/ttyUSB0");
+            SerialPort sp = SerialPort.getCommPort("COM4");
             sp.setComPortParameters(9600, 8, 1, 0);
             sp.setComPortTimeouts(SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
 
@@ -29,13 +25,21 @@ public class App
             
             while (true)
             {
-                if (sp.bytesAvailable() > 0)
+                if (sp.bytesAvailable() % PACKET_SIZE == 0)
                 {
-                    byte[] readBuffer = new byte[sp.bytesAvailable()];
-                    int numRead = sp.readBytes(readBuffer, readBuffer.length);
+                    int packetCount = sp.bytesAvailable() / PACKET_SIZE;
 
-                    System.out.print(new String(readBuffer));
-                    System.out.print("END LOOP");
+                    for (int i = 0; i < packetCount; i++)
+                    {
+                        byte[] readBuffer = new byte[PACKET_SIZE];
+
+                        System.out.println(ByteBuffer.wrap(readBuffer, 0, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat());
+                        System.out.println(ByteBuffer.wrap(readBuffer, 4, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat());
+                        System.out.println(ByteBuffer.wrap(readBuffer, 8, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat());
+                        System.out.println(ByteBuffer.wrap(readBuffer, 12, 4).getInt());
+
+                        System.out.print("END LOOP\n");
+                    }
                 }
             }
 
