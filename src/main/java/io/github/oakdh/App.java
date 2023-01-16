@@ -2,45 +2,56 @@ package io.github.oakdh;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Locale;
+
+import org.json.JSONObject;
 
 import com.fazecast.jSerialComm.SerialPort;
 
 public class App 
 {
-    static int PACKET_SIZE = 4 * 4; // bytes
+    static int PACKET_SIZE = 4 * 3 + 2; // bytes
     public static void main( String[] args )
     {   
+        //HTTPHandler.init();
+
         try
         {
             SerialPort sp = SerialPort.getCommPort("COM4");
             sp.setComPortParameters(9600, 8, 1, 0);
-            sp.setComPortTimeouts(SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
+            sp.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING, Integer.MAX_VALUE, 0);
 
             if (sp.openPort()) {
                 System.out.println("Port is open :)");
-                } else {
+            } else {
                 System.out.println("Failed to open port :(");
                 return;
             }		
             
             while (true)
             {
-                if (sp.bytesAvailable() % PACKET_SIZE == 0)
+                byte[] readBuffer = new byte[PACKET_SIZE];
+                sp.readBytes(readBuffer, readBuffer.length);
+
+                float temperature =     ByteBuffer.wrap(readBuffer, 0, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat();
+                float humidity =        ByteBuffer.wrap(readBuffer, 4, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat();
+                float soil_moisture =   ByteBuffer.wrap(readBuffer, 8, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat();
+                short id =              ByteBuffer.wrap(readBuffer, 12, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();
+
+                System.out.printf("Data for box #%d:\n Temp:\t\t %f,\n Hum:\t\t %f,\n SoilM:\t\t %f\n\n", id, temperature, humidity, soil_moisture);
+
+                JSONObject response =  HTTPHandler.sendMessage(String.format(Locale.US, "save_measurements/%f/%f/%f/%d/%d", temperature, humidity, soil_moisture, id, System.currentTimeMillis() / 1000L));
+
+                if (response.getInt("status") == 0)
                 {
-                    int packetCount = sp.bytesAvailable() / PACKET_SIZE;
-
-                    for (int i = 0; i < packetCount; i++)
-                    {
-                        byte[] readBuffer = new byte[PACKET_SIZE];
-
-                        System.out.println(ByteBuffer.wrap(readBuffer, 0, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat());
-                        System.out.println(ByteBuffer.wrap(readBuffer, 4, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat());
-                        System.out.println(ByteBuffer.wrap(readBuffer, 8, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat());
-                        System.out.println(ByteBuffer.wrap(readBuffer, 12, 4).getInt());
-
-                        System.out.print("END LOOP\n");
-                    }
+                    System.out.println(" Successfully saved to database.");
                 }
+                else
+                {
+                    System.out.println(" Error saving to database.");
+                }
+
+                System.out.print("END LOOP\n\n");
             }
 
             // if (sp.closePort()) {
@@ -50,5 +61,10 @@ public class App
             //     return;
             // }
         } catch (Exception e) {e.printStackTrace();}
+    }
+
+    public void sendPacketToServer(float f, float h, float s, short i)
+    {
+        
     }
 }
