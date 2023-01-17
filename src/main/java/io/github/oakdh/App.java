@@ -11,13 +11,16 @@ import com.fazecast.jSerialComm.SerialPort;
 public class App 
 {
     static int PACKET_SIZE = 4 * 3 + 2; // bytes
+
+    static boolean SAVE_TO_DB = false;
+
     public static void main( String[] args )
     {   
         //HTTPHandler.init();
 
         try
         {
-            SerialPort sp = SerialPort.getCommPort("COM4");
+            SerialPort sp = SerialPort.getCommPort("/dev/ttyUSB0");
             sp.setComPortParameters(9600, 8, 1, 0);
             sp.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING, Integer.MAX_VALUE, 0);
 
@@ -40,17 +43,20 @@ public class App
 
                 System.out.printf("Data for box #%d:\n Temp:\t\t %f,\n Hum:\t\t %f,\n SoilM:\t\t %f\n\n", id, temperature, humidity, soil_moisture);
 
-                JSONObject response =  HTTPHandler.sendMessage(String.format(Locale.US, "save_measurements/%f/%f/%f/%d/%d", temperature, humidity, soil_moisture, id, System.currentTimeMillis() / 1000L));
-
-                if (response.getInt("status") == 0)
+                if (SAVE_TO_DB)
                 {
-                    System.out.println(" Successfully saved to database.");
-                }
-                else
-                {
-                    System.out.println(" Error saving to database.");
-                }
+                    JSONObject response =  HTTPHandler.sendMessage(String.format(Locale.US, "save_measurements/%f/%f/%f/%d/%d", temperature, humidity, soil_moisture, id, System.currentTimeMillis() / 1000L));
 
+                    if (response.getInt("status") == 0)
+                    {
+                        System.out.println(" Successfully saved to database.");
+                    }
+                    else
+                    {
+                        System.out.println(" Error saving to database.");
+                    }
+                }
+                
                 System.out.print("END LOOP\n\n");
             }
 
